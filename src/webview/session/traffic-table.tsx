@@ -1,5 +1,5 @@
 import type { NestRnLensEvent, ServiceState } from '../../shared/protocol';
-import { ActivityIcon, ArrowRightIcon, CodeIcon } from '../components/icons';
+import { ActivityIcon, ArrowRightIcon, BrowserIcon, CodeIcon } from '../components/icons';
 import { channel } from './use-session';
 
 interface TrafficTableProps {
@@ -74,7 +74,7 @@ function TrafficRow({ event }: { event: NestRnLensEvent }) {
 			<span className={`mono duration duration--${speed(event.durationMs)}`}>{event.durationMs}ms</span>
 			<span className="traffic__source">
 				<span className="platform">{source.app} · {source.platform}</span>
-				{caller ? (
+				{caller?.kind === 'file' ? (
 					<button
 						className="code-link"
 						title={`Open ${source.caller}`}
@@ -82,6 +82,10 @@ function TrafficRow({ event }: { event: NestRnLensEvent }) {
 					>
 						<CodeIcon size={11} /> {caller.short}
 					</button>
+				) : caller?.kind === 'page' ? (
+					<span className="page-ref" title={`Page ${caller.path}`}>
+						<BrowserIcon size={11} /> {caller.path}
+					</span>
 				) : (
 					<span className="muted small">unknown screen</span>
 				)}
@@ -102,13 +106,19 @@ function TrafficRow({ event }: { event: NestRnLensEvent }) {
 	);
 }
 
+/**
+ * A caller is either a source location from React Native ("/…/screens/list.tsx:23",
+ * opens in the editor) or the page a web app was on ("/pokemon/25").
+ */
 function parseCaller(caller: string) {
 	const match = caller.match(/^(.*):(\d+)$/);
-	const path = match?.[1] ?? caller;
-	const line = Number(match?.[2] ?? 1);
+	if (!match) {
+		return { kind: 'page' as const, path: caller };
+	}
+	const [, path, line] = match;
 	// "…/src/screens/pokemon-detail/index.tsx" → "pokemon-detail/index.tsx:23"
 	const short = `${path.split('/').slice(-2).join('/')}:${line}`;
-	return { path, line, short };
+	return { kind: 'file' as const, path, line: Number(line), short };
 }
 
 function searchText(event: NestRnLensEvent) {

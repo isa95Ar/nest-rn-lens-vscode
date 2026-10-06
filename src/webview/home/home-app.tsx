@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { HomeToHost, HostToHome, ValidationResult } from '../../shared/protocol';
-import { ArrowRightIcon, PhoneIcon, PlayIcon, RefreshIcon, ServerIcon, StopIcon } from '../components/icons';
+import type { ClientKind, HomeToHost, HostToHome, ValidationResult } from '../../shared/protocol';
+import { ArrowRightIcon, BrowserIcon, PhoneIcon, PlayIcon, RefreshIcon, ServerIcon, StopIcon } from '../components/icons';
 import { Logo } from '../components/logo';
 import { createChannel } from '../vscode';
 import { LensLoader } from './lens-loader';
@@ -10,12 +10,18 @@ const channel = createChannel<HostToHome, HomeToHost>(['validation', 'session'])
 
 export function HomeApp() {
 	const [result, setResult] = useState<ValidationResult>();
+	// Remembered across re-checks, so the switch doesn't flicker while the apps are re-detected.
+	const [choice, setChoice] = useState<{ both: boolean; target?: ClientKind }>({ both: false });
 	const [running, setRunning] = useState(false);
 
 	useEffect(() => {
 		const stop = channel.listen((message) => {
 			if (message.type === 'validation') {
 				setResult(message.result);
+				const { clients, target } = message.result;
+				if (target) {
+					setChoice({ both: !!(clients.expo && clients.next), target });
+				}
 			} else {
 				setRunning(message.running);
 			}
@@ -38,11 +44,19 @@ export function HomeApp() {
 				</div>
 			</header>
 
+			{choice.both && (
+				<TargetSwitch
+					target={choice.target}
+					disabled={running || validating}
+					onChange={(target) => channel.post({ type: 'setTarget', target })}
+				/>
+			)}
+
 			{validating ? (
 				<section className="hero" aria-live="polite">
 					<LensLoader />
 					<h2>Inspecting your workspace</h2>
-					<p className="muted">Looking for Turborepo, a NestJS API and an Expo app</p>
+					<p className="muted">Looking for Turborepo, a NestJS API and a React Native or Next.js app</p>
 					<div className="progress" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
 						<span style={{ width: `${(done / total) * 100}%` }} />
 					</div>
@@ -82,7 +96,12 @@ function Summary({ result }: { result: ValidationResult }) {
 	return (
 		<section className="summary">
 			<div className="apps">
-				<AppChip icon={<PhoneIcon size={15} />} label="App" name={result.expo!.name} dir={result.expo!.relativeDir} />
+				<AppChip
+					icon={result.target === 'next' ? <BrowserIcon size={15} /> : <PhoneIcon size={15} />}
+					label={result.target === 'next' ? 'Web' : 'App'}
+					name={result.client!.name}
+					dir={result.client!.relativeDir}
+				/>
 				<div className="apps__link" aria-hidden="true">
 					<span />
 					<ArrowRightIcon size={12} />
@@ -125,5 +144,42 @@ function RunningCard() {
 				</button>
 			</div>
 		</section>
+	);
+}
+
+const TARGETS: { id: ClientKind; label: string; icon: React.ReactNode }[] = [
+	{ id: 'expo', label: 'React Native', icon: <PhoneIcon size={13} /> },
+	{ id: 'next', label: 'Next.js', icon: <BrowserIcon size={13} /> },
+];
+
+/** Shown when the monorepo has both a React Native and a Next.js app. */
+function TargetSwitch({
+	target,
+	disabled,
+	onChange,
+}: {
+	target?: ClientKind;
+	disabled: boolean;
+	onChange: (target: ClientKind) => void;
+}) {
+	return (
+		<div className="target" role="radiogroup" aria-label="App to track">
+			<span className="target__label">Track</span>
+			<div className="target__options">
+				{TARGETS.map((option) => (
+					<button
+						key={option.id}
+						role="radio"
+						aria-checked={target === option.id}
+						className="target__option"
+						disabled={disabled && target !== option.id}
+						onClick={() => target !== option.id && onChange(option.id)}
+					>
+						{option.icon}
+						{option.label}
+					</button>
+				))}
+			</div>
+		</div>
 	);
 }

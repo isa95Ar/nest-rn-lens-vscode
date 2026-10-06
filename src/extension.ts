@@ -3,13 +3,14 @@ import * as vscode from 'vscode';
 import { HomeViewProvider } from './home-view';
 import { Session } from './session/session';
 import { SessionPanel } from './session/session-panel';
-import type { HomeToHost, ValidationResult } from './shared/protocol';
+import type { ClientKind, HomeToHost, ValidationResult } from './shared/protocol';
 import { registerNestModule } from './validation/nest-module';
 import { validateWorkspace } from './validation/validate';
 import { detectPackageManager } from './validation/workspace';
 
 // Short pause per step so the checklist animates instead of flashing.
 const STEP_DELAY_MS = 180;
+const TARGET_KEY = 'nestRnLens.target';
 
 class NestRnLens implements vscode.Disposable {
 	private readonly home: HomeViewProvider;
@@ -35,15 +36,27 @@ class NestRnLens implements vscode.Disposable {
 
 	validate(): Promise<ValidationResult> {
 		const folders = vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath) ?? [];
+		const config = vscode.workspace.getConfiguration('nestRnLens');
 		this.validating = validateWorkspace(
 			folders,
 			(result) => {
 				this.validation = result;
 				this.home.post({ type: 'validation', result });
 			},
-			STEP_DELAY_MS,
+			{
+				target: this.context.workspaceState.get<ClientKind>(TARGET_KEY),
+				apiPort: config.get('apiPort', 3000),
+				webPort: config.get('webPort', 3001),
+				stepDelayMs: STEP_DELAY_MS,
+			},
 		).finally(() => (this.validating = undefined));
 		return this.validating;
+	}
+
+	/** Which app to track when the monorepo has both a React Native and a Next.js app. */
+	private async setTarget(target: ClientKind) {
+		await this.context.workspaceState.update(TARGET_KEY, target);
+		await this.validate();
 	}
 
 	async start() {
@@ -52,7 +65,7 @@ class NestRnLens implements vscode.Disposable {
 			return;
 		}
 		const result = this.validation?.phase === 'done' ? this.validation : await (this.validating ?? this.validate());
-		if (!result.canStart || !result.root || !result.nest || !result.expo) {
+		if (!result.canStart || !result.root || !result.nest || !result.client) {
 			this.home.reveal();
 			void vscode.window.showWarningMessage('NestRN Lens: fix the failed checks before launching.');
 			return;
@@ -63,9 +76,10 @@ class NestRnLens implements vscode.Disposable {
 			root: result.root,
 			pm: detectPackageManager(result.root),
 			nest: result.nest,
-			expo: result.expo,
+			client: result.client,
 			apiPort: config.get('apiPort', 3000),
 			metroPort: config.get('metroPort', 8081),
+			webPort: config.get('webPort', 3001),
 		});
 		this.session = session;
 		this.panel = new SessionPanel(session, result.nest.dir, this.context.extensionUri, () => {
@@ -99,6 +113,11 @@ class NestRnLens implements vscode.Disposable {
 				break;
 			case 'revalidate':
 				void this.validate();
+				break;
+			case 'setTarget':
+				if (!this.session) {
+					void this.setTarget(message.target);
+				}
 				break;
 			case 'start':
 				void this.start();

@@ -38,3 +38,27 @@ export async function waitUntil(
 	}
 	return false;
 }
+
+/**
+ * Why a page refuses to be shown in an iframe, if it does: X-Frame-Options, or
+ * a Content-Security-Policy frame-ancestors that doesn't allow everyone.
+ * The webview's origin is never the app's, so SAMEORIGIN blocks too.
+ */
+export async function frameBlockReason(url: string): Promise<string | undefined> {
+	let response: Response;
+	try {
+		response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+		await response.body?.cancel();
+	} catch {
+		return undefined; // can't tell; let the iframe try
+	}
+	const frameOptions = response.headers.get('x-frame-options');
+	if (frameOptions && /deny|sameorigin/i.test(frameOptions)) {
+		return `X-Frame-Options: ${frameOptions}`;
+	}
+	const ancestors = response.headers.get('content-security-policy')?.match(/frame-ancestors([^;]*)/i)?.[1].trim();
+	if (ancestors !== undefined && !/(^|\s)\*(\s|$)/.test(ancestors)) {
+		return `Content-Security-Policy: frame-ancestors ${ancestors || "'none'"}`;
+	}
+	return undefined;
+}

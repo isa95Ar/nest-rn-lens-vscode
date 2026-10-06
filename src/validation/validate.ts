@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
-import type { DetectedApp, ValidationResult, ValidationStep } from '../shared/protocol';
+import { basename, join, relative } from 'node:path';
+import type { ClientKind, DetectedApp, ValidationResult, ValidationStep } from '../shared/protocol';
+import { findInSources, nextDevPort } from './client-app';
 import { findRootModule, isRegistered, NEST_PACKAGE } from './nest-module';
 import {
 	dependsOn,
@@ -18,16 +19,41 @@ import {
 const MIN_EXPO_SDK = 52;
 const METRO_CONFIG_FILES = ['metro.config.js', 'metro.config.cjs', 'metro.config.mjs', 'metro.config.ts'];
 
-const STEPS: Pick<ValidationStep, 'id' | 'title'>[] = [
+// Next.js 13 introduced the app router; older versions aren't tested.
+const MIN_NEXT = 13;
+
+type StepDef = Pick<ValidationStep, 'id' | 'title'>;
+
+const COMMON_STEPS: StepDef[] = [
 	{ id: 'turbo', title: 'Turborepo workspace' },
-	{ id: 'apps', title: 'NestJS API and React Native app' },
+	{ id: 'apps', title: 'NestJS API and a client app' },
 	{ id: 'nest-interceptor', title: '@nest-rn-lens/nest in the API' },
-	{ id: 'expo', title: 'Expo SDK' },
-	{ id: 'metro', title: 'Metro bundler config' },
-	{ id: 'react', title: 'Single copy of React' },
-	{ id: 'web', title: 'In-editor preview support' },
-	{ id: 'client', title: 'App sends the calling screen' },
+	{ id: 'cors', title: 'API accepts browser requests (CORS)' },
 ];
+
+const TARGET_STEPS: Record<ClientKind, StepDef[]> = {
+	expo: [
+		{ id: 'expo', title: 'Expo SDK' },
+		{ id: 'metro', title: 'Metro bundler config' },
+		{ id: 'react', title: 'Single copy of React' },
+		{ id: 'web', title: 'In-editor preview support' },
+		{ id: 'client', title: 'App sends the calling screen' },
+	],
+	next: [
+		{ id: 'next', title: 'Next.js version' },
+		{ id: 'next-port', title: 'Next.js dev server port' },
+		{ id: 'client', title: 'App sends the calling page' },
+	],
+};
+
+export interface ValidateOptions {
+	/** The client app to check; falls back to whichever one exists. */
+	target?: ClientKind;
+	apiPort?: number;
+	webPort?: number;
+	/** Short pause per step, so the checklist animates. */
+	stepDelayMs?: number;
+}
 
 type StepOutcome = Pick<ValidationStep, 'status' | 'detail' | 'fix'>;
 
@@ -36,6 +62,12 @@ interface Context {
 	pm: PackageManager;
 	nest?: WorkspacePackage;
 	expo?: WorkspacePackage;
+	next?: WorkspacePackage;
+	target: ClientKind;
+	/** The app being checked: ctx.expo or ctx.next. */
+	client?: WorkspacePackage;
+	apiPort: number;
+	webPort: number;
 }
 
 const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> = {
@@ -60,15 +92,21 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 		const packages = listWorkspacePackages(ctx.root!);
 		ctx.nest = packages.find((p) => dependsOn(p.pkg, '@nestjs/core'));
 		ctx.expo = packages.find((p) => dependsOn(p.pkg, 'react-native'));
-		const found = [ctx.nest, ctx.expo].filter(Boolean).map((p) => `${p!.pkg.name} (${p!.relativeDir})`);
+		ctx.next = packages.find((p) => dependsOn(p.pkg, 'next'));
+		const found = [ctx.nest, ctx.expo, ctx.next].filter(Boolean).map((p) => `${p!.pkg.name} (${p!.relativeDir})`);
 
-		if (!ctx.nest || !ctx.expo) {
-			const missing = [!ctx.nest && 'a NestJS app', !ctx.expo && 'a React Native app'].filter(Boolean);
+		if (!ctx.nest || (!ctx.expo && !ctx.next)) {
+			const missing = [!ctx.nest && 'a NestJS API', !ctx.expo && !ctx.next && 'a React Native or Next.js app'].filter(Boolean);
 			return {
 				status: 'fail',
 				detail: `Missing ${missing.join(' and ')}.${found.length ? ` Found ${found.join(', ')}.` : ''}`,
 			};
 		}
+		// Keep the requested target when it exists, otherwise use the other one.
+		if (!ctx[ctx.target]) {
+			ctx.target = ctx.target === 'expo' ? 'next' : 'expo';
+		}
+		ctx.client = ctx[ctx.target];
 		return { status: 'pass', detail: found.join(' · ') };
 	},
 
@@ -120,6 +158,20 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 			};
 		}
 		return { status: 'pass', detail: `v${version} · registered in ${relativeDir}/${moduleFile}` };
+	},
+
+	cors(ctx) {
+		const { dir, relativeDir } = ctx.nest!;
+		const main = ['src/main.ts', 'src/main.js'].map((file) => join(dir, file)).find((file) => existsSync(file));
+		const source = main ? readFileSync(main, 'utf8') : '';
+		if (/\benableCors\s*\(/.test(source) || /\bcors\s*:\s*(true|\{)/.test(source)) {
+			return { status: 'pass', detail: `Enabled in ${relativeDir}/${main ? relative(dir, main) : 'src/main.ts'}` };
+		}
+		const who = ctx.target === 'next' ? 'The Next.js app calls' : 'The in-editor preview calls';
+		return {
+			status: 'warn',
+			detail: `${who} the API from a browser, which needs CORS. Add app.enableCors() to ${relativeDir}/src/main.ts for development.`,
+		};
 	},
 
 	expo(ctx) {
@@ -190,21 +242,56 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 	},
 
 	client(ctx) {
-		const { dir, pkg, relativeDir } = ctx.expo!;
-		if (dependsOn(pkg, '@nest-rn-lens/react-native')) {
-			return { status: 'pass', detail: '@nest-rn-lens/react-native' };
+		const { dir, pkg, relativeDir } = ctx.client!;
+		const packageClient = ['@nest-rn-lens/client', '@nest-rn-lens/react-native'].find((name) => dependsOn(pkg, name));
+		if (packageClient) {
+			return { status: 'pass', detail: packageClient };
 		}
-		// Until @nest-rn-lens/react-native is published, apps can carry a local
-		// copy of the fetch wrapper (the sample app does).
-		const sources = ['src/isalens/isalens-fetch.ts', 'src/nest-rn-lens/fetch.ts'];
-		const local = sources.find((file) => existsSync(join(dir, file)));
-		if (local) {
-			return { status: 'pass', detail: `Using the local fetch wrapper in ${relativeDir}/${dirname(local)}` };
+		const file = findInSources(dir, 'x-nest-rn-lens-app');
+		if (file) {
+			return { status: 'pass', detail: `Sends the NestRN Lens headers (${relativeDir}/${file})` };
 		}
+		const what = ctx.target === 'next' ? 'the page that made them' : 'the screen that made them';
 		return {
 			status: 'warn',
-			detail: 'Requests will show up, but without the screen that made them. Send the x-nest-rn-lens-* headers (see the README).',
+			detail: `Requests will show up as "unknown", without ${what}. Send the x-nest-rn-lens-* headers (see the README).`,
 		};
+	},
+
+	next(ctx) {
+		const { dir } = ctx.next!;
+		const version = installedVersion('next', dir, ctx.root!);
+		if (!version) {
+			return {
+				status: 'fail',
+				detail: 'next is listed but not installed.',
+				fix: { label: 'Install dependencies', summary: `${ctx.pm} install`, command: `${ctx.pm} install`, cwd: ctx.root! },
+			};
+		}
+		const major = majorVersion(version)!;
+		if (major < MIN_NEXT) {
+			return { status: 'fail', detail: `Next.js ${version} found. NestRN Lens needs Next.js ${MIN_NEXT} or newer.` };
+		}
+		return { status: 'pass', detail: `Next.js ${version}` };
+	},
+
+	'next-port'(ctx) {
+		const { pkg, relativeDir } = ctx.next!;
+		const dev = pkg.scripts?.dev;
+		if (!dev) {
+			return { status: 'fail', detail: `No "dev" script in ${relativeDir}/package.json. NestRN Lens starts the app with it.` };
+		}
+		const { port, explicit } = nextDevPort(dev, ctx.webPort);
+		if (port === ctx.apiPort) {
+			return {
+				status: 'fail',
+				detail: `next dev and the API would both use port ${port}. Change the port in the dev script, or the nestRnLens.apiPort setting.`,
+			};
+		}
+		if (!/\bnext\s+dev\b/.test(dev)) {
+			return { status: 'warn', detail: `The dev script doesn't run next dev directly ("${dev}"). It must start the app on port ${port}.` };
+		}
+		return { status: 'pass', detail: explicit ? `Port ${port}, from the dev script` : `Port ${port}, set by NestRN Lens (PORT)` };
 	},
 };
 
@@ -215,17 +302,24 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 export async function validateWorkspace(
 	folders: string[],
 	onUpdate: (result: ValidationResult) => void,
-	stepDelayMs = 0,
+	{ target = 'expo', apiPort = 3000, webPort = 3001, stepDelayMs = 0 }: ValidateOptions = {},
 ): Promise<ValidationResult> {
-	const steps: ValidationStep[] = STEPS.map((step) => ({ ...step, status: 'pending' }));
-	const ctx: Context = { pm: 'npm' };
+	const pending = (defs: StepDef[]): ValidationStep[] => defs.map((step) => ({ ...step, status: 'pending' }));
+	const steps = pending([...COMMON_STEPS, ...TARGET_STEPS[target]]);
+	const ctx: Context = { pm: 'npm', target, apiPort, webPort };
+
 	const emit = (phase: ValidationResult['phase']) => {
 		const result: ValidationResult = {
 			phase,
 			root: ctx.root,
 			steps: steps.map((s) => ({ ...s })),
 			nest: ctx.nest && toApp('nest', ctx.nest),
-			expo: ctx.expo && toApp('expo', ctx.expo),
+			clients: {
+				...(ctx.expo && { expo: toApp('expo', ctx.expo) }),
+				...(ctx.next && { next: toApp('next', ctx.next) }),
+			},
+			target: ctx.client ? ctx.target : undefined,
+			client: ctx.client && toApp(ctx.target, ctx.client),
 			canStart: phase === 'done' && steps.every((s) => s.status === 'pass' || s.status === 'warn'),
 		};
 		onUpdate(result);
@@ -233,7 +327,8 @@ export async function validateWorkspace(
 	};
 
 	let blocked = false;
-	for (const step of steps) {
+	for (let i = 0; i < steps.length; i++) {
+		const step = steps[i];
 		if (blocked) {
 			step.detail = 'Skipped';
 			continue;
@@ -249,8 +344,13 @@ export async function validateWorkspace(
 			outcome = { status: 'fail', detail: error instanceof Error ? error.message : String(error) };
 		}
 		Object.assign(step, outcome);
-		// Later steps need the root and both apps.
+		// Later steps need the root and the apps.
 		blocked = (step.id === 'turbo' || step.id === 'apps') && outcome.status === 'fail';
+
+		// The requested app may not exist; switch to the checks of the one that does.
+		if (step.id === 'apps' && outcome.status !== 'fail' && ctx.target !== target) {
+			steps.splice(COMMON_STEPS.length, steps.length, ...pending(TARGET_STEPS[ctx.target]));
+		}
 	}
 	return emit('done');
 }

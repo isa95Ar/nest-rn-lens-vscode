@@ -180,7 +180,8 @@ body.resizing iframe {
 	color: var(--il-muted);
 }
 
-.zoom .icon-button[aria-pressed='true'] {
+.zoom .icon-button[aria-pressed='true'],
+.zoom .icon-button[aria-checked='true'] {
 	color: #fff;
 	background: var(--il-gradient);
 }
@@ -445,6 +446,151 @@ body.resizing iframe {
 	border-radius: 50%;
 	color: #fff;
 	background: #d93a3a;
+}
+
+/* ---------- Browser window (Next.js) ---------- */
+
+.window-slot {
+	position: relative;
+	flex-shrink: 0;
+}
+
+.window {
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	border-radius: 12px;
+	background: #fff;
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--il-fg) 18%, transparent),
+		0 40px 80px -30px rgba(0, 0, 0, 0.6),
+		0 20px 40px -20px color-mix(in srgb, var(--il-accent-2) 40%, transparent);
+	transform-origin: top left;
+}
+
+.window__bar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 12px;
+	flex-shrink: 0;
+	background: #ececef;
+	border-bottom: 1px solid #d9d9de;
+	color: #3a3a3f;
+	font-family: -apple-system, system-ui, sans-serif;
+}
+
+.window__dots {
+	display: flex;
+	gap: 7px;
+	margin-right: 8px;
+}
+
+.window__dots span {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: #ff5f57;
+}
+
+.window__dots span:nth-child(2) {
+	background: #febc2e;
+}
+
+.window__dots span:nth-child(3) {
+	background: #28c840;
+}
+
+.window__button {
+	display: inline-grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: none;
+	border-radius: 7px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+
+.window__button:hover {
+	background: rgba(0, 0, 0, 0.07);
+}
+
+.window__address {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	min-width: 0;
+	height: 30px;
+	margin: 0 6px;
+	padding: 0 12px;
+	border-radius: 8px;
+	background: #fff;
+	box-shadow: inset 0 0 0 1px #d9d9de;
+	font-size: 14px;
+}
+
+.window__address:focus-within {
+	box-shadow: inset 0 0 0 2px var(--il-accent-2);
+}
+
+.window__origin {
+	flex-shrink: 0;
+	color: #8a8a90;
+}
+
+.window__address input {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: #1c1c1e;
+	font: inherit;
+}
+
+.window__viewport {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	background: #fff;
+}
+
+.window__viewport iframe {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	background: #fff;
+	animation: il-fade-in 0.4s ease;
+}
+
+.boot code {
+	padding: 1px 6px;
+	border-radius: 4px;
+	background: #ececef;
+	font-size: 12px;
+}
+
+.boot .button {
+	margin-top: 10px;
+}
+
+.page-ref {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	overflow: hidden;
+	color: var(--il-fg);
+	font-family: var(--il-mono);
+	font-size: 11.5px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* ---------- Dock ---------- */

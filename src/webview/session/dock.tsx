@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIcon, SearchIcon, ServerIcon, TerminalIcon, TrashIcon } from '../components/icons';
 import { LogView } from './log-view';
 import { TrafficTable } from './traffic-table';
-import { channel, type DockTab, type SessionState } from './use-session';
+import { appLabel, channel, type DockTab, type SessionState } from './use-session';
 
 interface DockProps {
 	state: SessionState;
@@ -11,7 +11,11 @@ interface DockProps {
 }
 
 export function Dock({ state, height, onClear }: DockProps) {
-	const [tab, setTab] = useState<DockTab>(() => channel.getState()?.tab ?? 'traffic');
+	// "metro" is the tab id saved by version 0.1.
+	const [tab, setTab] = useState<DockTab>(() => {
+		const saved = channel.getState()?.tab as DockTab | 'metro' | undefined;
+		return saved === 'metro' ? 'app' : (saved ?? 'traffic');
+	});
 	const [filter, setFilter] = useState('');
 
 	const selectTab = (next: DockTab) => {
@@ -22,7 +26,7 @@ export function Dock({ state, height, onClear }: DockProps) {
 	const counts = {
 		traffic: state.traffic.length,
 		api: state.logs.filter((l) => l.service === 'api').length,
-		metro: state.logs.filter((l) => l.service === 'metro').length,
+		app: state.logs.filter((l) => l.service === 'app').length,
 	};
 
 	return (
@@ -35,8 +39,8 @@ export function Dock({ state, height, onClear }: DockProps) {
 					<Tab id="api" active={tab} count={counts.api} onSelect={selectTab} icon={<ServerIcon size={13} />}>
 						API
 					</Tab>
-					<Tab id="metro" active={tab} count={counts.metro} onSelect={selectTab} icon={<TerminalIcon size={13} />}>
-						Metro
+					<Tab id="app" active={tab} count={counts.app} onSelect={selectTab} icon={<TerminalIcon size={13} />}>
+						{appLabel(state.appKind)}
 					</Tab>
 				</div>
 				<div className="dock__tools">

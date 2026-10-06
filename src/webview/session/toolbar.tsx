@@ -1,7 +1,7 @@
 import type { ServiceState } from '../../shared/protocol';
-import { ArrowRightIcon, ExternalIcon, PhoneIcon, RefreshIcon, ReloadIcon, ServerIcon, StopIcon } from '../components/icons';
+import { ArrowRightIcon, BrowserIcon, ExternalIcon, PhoneIcon, RefreshIcon, ReloadIcon, ServerIcon, StopIcon } from '../components/icons';
 import { Logo } from '../components/logo';
-import { channel, type SessionState } from './use-session';
+import { appLabel, channel, type SessionState } from './use-session';
 
 const STATUS_LABEL: Record<ServiceState['status'], string> = {
 	idle: 'Idle',
@@ -18,7 +18,7 @@ export function Toolbar({ state, onReload }: { state: SessionState; onReload: ()
 			<div className="toolbar__title">
 				<Logo size={22} />
 				<span className="toolbar__app">
-					<PhoneIcon size={13} /> {state.appName || '…'}
+					{state.appKind === 'next' ? <BrowserIcon size={13} /> : <PhoneIcon size={13} />} {state.appName || '…'}
 				</span>
 				<ArrowRightIcon size={12} className="muted" />
 				<span className="toolbar__app">
@@ -27,7 +27,7 @@ export function Toolbar({ state, onReload }: { state: SessionState; onReload: ()
 			</div>
 
 			<div className="toolbar__services">
-				<ServicePill name="Metro" state={state.services.metro} />
+				<ServicePill name={appLabel(state.appKind)} state={state.services.app} />
 				<ServicePill name="API" state={state.services.api} />
 			</div>
 
@@ -38,7 +38,7 @@ export function Toolbar({ state, onReload }: { state: SessionState; onReload: ()
 				<IconButton label="Open in browser" onClick={() => channel.post({ type: 'openExternal' })}>
 					<ExternalIcon size={14} />
 				</IconButton>
-				<IconButton label="Restart API and Metro" onClick={() => channel.post({ type: 'restart' })}>
+				<IconButton label={`Restart API and ${appLabel(state.appKind)}`} onClick={() => channel.post({ type: 'restart' })}>
 					<RefreshIcon size={14} />
 				</IconButton>
 				<button className="button button--danger button--small" onClick={() => channel.post({ type: 'stop' })}>

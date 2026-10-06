@@ -30,6 +30,63 @@
 	font-size: 11px;
 }
 
+/* ---------- App switch ---------- */
+
+.target {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.target__label {
+	color: var(--il-muted);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.target__options {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 3px;
+	padding: 3px;
+	border: 1px solid var(--il-border);
+	border-radius: var(--il-radius-small);
+	background: var(--il-surface);
+}
+
+.target__option {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 28px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--il-muted);
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 500;
+	transition: background 0.15s, color 0.15s;
+}
+
+.target__option:hover:not(:disabled) {
+	color: var(--il-fg);
+}
+
+.target__option[aria-checked='true'] {
+	color: #fff;
+	background: var(--il-gradient);
+	box-shadow: 0 2px 10px -4px color-mix(in srgb, var(--il-accent-1) 70%, transparent);
+}
+
+.target__option:disabled {
+	cursor: default;
+	opacity: 0.5;
+}
+
 /* ---------- Validating hero ---------- */
 
 .hero {

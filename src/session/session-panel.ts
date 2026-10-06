@@ -37,14 +37,17 @@ export class SessionPanel {
 		const onService = (service: ServiceName, state: ServiceState) => this.post({ type: 'service', service, state });
 		const onLogs = (lines: LogLine[]) => this.post({ type: 'logs', lines });
 		const onTraffic = (event: NestRnLensEvent) => this.post({ type: 'traffic', event });
+		const onEmbed = (blocked: string | undefined) => this.post({ type: 'embed', blocked });
 		session.on('service', onService);
 		session.on('logs', onLogs);
 		session.on('traffic', onTraffic);
+		session.on('embed', onEmbed);
 		this.disposables.push({
 			dispose: () => {
 				session.off('service', onService);
 				session.off('logs', onLogs);
 				session.off('traffic', onTraffic);
+				session.off('embed', onEmbed);
 			},
 		});
 

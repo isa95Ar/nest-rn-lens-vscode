@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { join } from 'node:path';
 import type {
+	ClientKind,
 	DetectedApp,
 	NestRnLensEvent,
 	LogLevel,
@@ -11,7 +12,8 @@ import type {
 } from '../shared/protocol';
 import { readJson, type PackageJson, type PackageManager } from '../validation/workspace';
 import { DevProcess } from './dev-process';
-import { isMetroReady, isPortInUse, waitUntil } from './net';
+import { nextDevPort } from '../validation/client-app';
+import { frameBlockReason, isMetroReady, isPortInUse, waitUntil } from './net';
 
 const MAX_LOGS = 2000;
 const MAX_TRAFFIC = 500;
@@ -23,25 +25,30 @@ export interface SessionOptions {
 	root: string;
 	pm: PackageManager;
 	nest: DetectedApp;
-	expo: DetectedApp;
+	/** The tracked app: an Expo app (run with Metro) or a Next.js app (run with next dev). */
+	client: DetectedApp;
 	apiPort: number;
 	metroPort: number;
+	/** Port for next dev, unless the app's dev script sets its own. */
+	webPort: number;
 }
 
 interface SessionEvents {
 	service: [ServiceName, ServiceState];
 	logs: [LogLine[]];
 	traffic: [NestRnLensEvent];
+	embed: [string | undefined];
 }
 
 /**
- * Runs the NestJS API and Metro for one NestRN Lens session, keeps recent logs and
- * traffic in memory, and reports changes. Knows nothing about VS Code.
+ * Runs the NestJS API and the client app (Metro or next dev) for one NestRN Lens
+ * session, keeps recent logs and traffic in memory, and reports changes. Knows
+ * nothing about VS Code.
  */
 export class Session extends EventEmitter<SessionEvents> {
 	readonly services: Record<ServiceName, ServiceState> = {
 		api: { status: 'idle' },
-		metro: { status: 'idle' },
+		app: { status: 'idle' },
 	};
 	private readonly processes: Partial<Record<ServiceName, DevProcess>> = {};
 	private readonly logs: LogLine[] = [];
@@ -50,29 +57,46 @@ export class Session extends EventEmitter<SessionEvents> {
 	private flushTimer?: NodeJS.Timeout;
 	private nextLogId = 1;
 	private abort = new AbortController();
+	private embedBlocked?: string;
 
 	constructor(private readonly options: SessionOptions) {
 		super();
 	}
 
+	get appKind() {
+		return this.options.client.kind as ClientKind;
+	}
+
+	get appPort() {
+		const { client, metroPort, webPort } = this.options;
+		if (this.appKind === 'expo') {
+			return metroPort;
+		}
+		const scripts = readJson<PackageJson>(join(client.dir, 'package.json'))?.scripts;
+		return nextDevPort(scripts?.dev, webPort).port;
+	}
+
 	get previewUrl() {
-		return `http://localhost:${this.options.metroPort}`;
+		return `http://localhost:${this.appPort}`;
 	}
 
 	snapshot(previewUrl = this.previewUrl): SessionSnapshot {
 		return {
-			appName: this.options.expo.name,
+			appKind: this.appKind,
+			appName: this.options.client.name,
 			apiName: this.options.nest.name,
 			previewUrl,
 			services: { ...this.services },
 			logs: [...this.logs],
 			traffic: [...this.traffic],
+			embedBlocked: this.embedBlocked,
 		};
 	}
 
 	async start() {
 		this.abort = new AbortController();
-		await Promise.all([this.startApi(), this.startMetro()]);
+		const app = this.appKind === 'expo' ? this.startMetro() : this.startNext();
+		await Promise.all([this.startApi(), app.then(() => this.checkEmbedding())]);
 	}
 
 	async stop() {
@@ -108,17 +132,41 @@ export class Session extends EventEmitter<SessionEvents> {
 	}
 
 	private startMetro() {
-		const { expo, pm, metroPort } = this.options;
+		const { client, pm, metroPort } = this.options;
 		const exec = { npm: ['npx', 'expo'], yarn: ['yarn', 'expo'], pnpm: ['pnpm', 'exec', 'expo'] }[pm];
 
-		return this.startService('metro', {
+		return this.startService('app', {
 			port: metroPort,
 			isReady: () => isMetroReady(metroPort),
 			command: exec[0],
 			args: [...exec.slice(1), 'start', '--port', String(metroPort)],
-			cwd: expo.dir,
+			cwd: client.dir,
 			env: { BROWSER: 'none', EXPO_NO_TELEMETRY: '1' },
 		});
+	}
+
+	private startNext() {
+		const { client, pm, webPort } = this.options;
+		const port = this.appPort;
+		return this.startService('app', {
+			port,
+			isReady: () => isPortInUse(port),
+			command: pm,
+			args: ['run', 'dev'],
+			cwd: client.dir,
+			// next dev reads PORT unless the dev script passes -p itself.
+			env: { PORT: String(webPort), BROWSER: 'none', NEXT_TELEMETRY_DISABLED: '1' },
+		});
+	}
+
+	/** Lets the panel show a fallback instead of a blank frame. */
+	private async checkEmbedding() {
+		const { status } = this.services.app;
+		if (status !== 'running' && status !== 'attached') {
+			return;
+		}
+		this.embedBlocked = await frameBlockReason(this.previewUrl);
+		this.emit('embed', this.embedBlocked);
 	}
 
 	private async startService(

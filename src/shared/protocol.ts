@@ -24,8 +24,11 @@ export interface ValidationStep {
 	fix?: StepFix;
 }
 
+/** The client app a session tracks: a React Native (Expo) app or a Next.js app. */
+export type ClientKind = 'expo' | 'next';
+
 export interface DetectedApp {
-	kind: 'nest' | 'expo';
+	kind: 'nest' | ClientKind;
 	name: string;
 	dir: string;
 	/** Relative to the Turborepo root, e.g. "apps/api". */
@@ -37,7 +40,11 @@ export interface ValidationResult {
 	root?: string;
 	steps: ValidationStep[];
 	nest?: DetectedApp;
-	expo?: DetectedApp;
+	/** Every client app found, so the sidebar can offer a choice when there are two. */
+	clients: Partial<Record<ClientKind, DetectedApp>>;
+	/** The client app being checked and launched. */
+	target?: ClientKind;
+	client?: DetectedApp;
 	canStart: boolean;
 }
 
@@ -63,7 +70,8 @@ export interface NestRnLensEvent {
 
 // ---------- Session ----------
 
-export type ServiceName = 'api' | 'metro';
+/** "app" is Metro for React Native and next dev for Next.js. */
+export type ServiceName = 'api' | 'app';
 
 export type ServiceStatus = 'idle' | 'starting' | 'running' | 'attached' | 'stopped' | 'error';
 
@@ -83,12 +91,15 @@ export interface LogLine {
 }
 
 export interface SessionSnapshot {
+	appKind: ClientKind;
 	appName: string;
 	apiName: string;
 	previewUrl: string;
 	services: Record<ServiceName, ServiceState>;
 	logs: LogLine[];
 	traffic: NestRnLensEvent[];
+	/** Set when the app refuses to be shown in a frame (X-Frame-Options or CSP). */
+	embedBlocked?: string;
 }
 
 // ---------- Messages ----------
@@ -103,13 +114,15 @@ export type HomeToHost =
 	| { type: 'start' }
 	| { type: 'stop' }
 	| { type: 'showPanel' }
-	| { type: 'runFix'; stepId: string };
+	| { type: 'runFix'; stepId: string }
+	| { type: 'setTarget'; target: ClientKind };
 
 export type HostToSession =
 	| { type: 'init'; snapshot: SessionSnapshot }
 	| { type: 'service'; service: ServiceName; state: ServiceState }
 	| { type: 'logs'; lines: LogLine[] }
 	| { type: 'traffic'; event: NestRnLensEvent }
+	| { type: 'embed'; blocked?: string }
 	| { type: 'reloadPreview' };
 
 export type SessionToHost =

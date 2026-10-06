@@ -22,11 +22,19 @@ interface ZoomControlsProps {
 	/** The scale currently applied (resolves 'fit'). */
 	scale: number;
 	onChange: (zoom: Zoom) => void;
+	/** Extra controls shown before the zoom buttons, e.g. viewport presets. */
+	children?: React.ReactNode;
 }
 
-export function ZoomControls({ zoom, scale, onChange }: ZoomControlsProps) {
+export function ZoomControls({ zoom, scale, onChange, children }: ZoomControlsProps) {
 	return (
-		<div className="zoom" role="toolbar" aria-label="Preview zoom">
+		<div className="zoom" role="toolbar" aria-label="Preview controls">
+			{children && (
+				<>
+					{children}
+					<span className="zoom__divider" />
+				</>
+			)}
 			<button
 				className="icon-button"
 				title="Zoom out"

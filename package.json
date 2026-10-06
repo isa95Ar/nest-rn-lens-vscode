@@ -1,8 +1,8 @@
 {
   "name": "nest-rn-lens",
   "displayName": "NestRN Lens",
-  "description": "See the live traffic between your React Native app and your NestJS API, inside a Turborepo.",
-  "version": "0.1.0",
+  "description": "See the live traffic between your React Native or Next.js app and your NestJS API, inside a Turborepo.",
+  "version": "0.2.0",
   "publisher": "IsaiasDiaz",
   "license": "MIT",
   "repository": {
@@ -28,7 +28,10 @@
     "api",
     "traffic",
     "network",
-    "devtools"
+    "devtools",
+    "nextjs",
+    "next.js",
+    "web"
   ],
   "engines": {
     "vscode": "^1.140.0"
@@ -100,6 +103,11 @@
           "type": "number",
           "default": 8081,
           "description": "Port for the Metro bundler (Expo dev server)."
+        },
+        "nestRnLens.webPort": {
+          "type": "number",
+          "default": 3001,
+          "description": "Port for the Next.js dev server, unless the app's dev script sets one. Kept apart from the API's port."
         }
       }
     },

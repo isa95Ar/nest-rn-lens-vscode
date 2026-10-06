@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { Dock } from './dock';
+import { BrowserPreview } from './browser-preview';
 import { PhonePreview } from './phone-preview';
 import { Toolbar } from './toolbar';
 import { channel, useSession } from './use-session';
@@ -34,7 +35,7 @@ export function SessionApp() {
 	return (
 		<div className="session" ref={layout}>
 			<Toolbar state={state} onReload={() => dispatch({ type: 'reloadPreview' })} />
-			<PhonePreview state={state} />
+			{state.appKind === 'next' ? <BrowserPreview state={state} /> : <PhonePreview state={state} />}
 			<div
 				className="dock-resizer"
 				role="separator"
