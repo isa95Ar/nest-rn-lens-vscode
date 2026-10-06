@@ -13,7 +13,7 @@ export interface StepFix {
 	command?: string;
 	cwd: string;
 	/** Code change to make after the command succeeds. */
-	edit?: 'register-nest-module';
+	edit?: 'register-nest-module' | 'enable-cors' | 'add-client';
 }
 
 export interface ValidationStep {
@@ -123,7 +123,8 @@ export interface SessionSnapshot {
 
 export type HostToHome =
 	| { type: 'validation'; result: ValidationResult }
-	| { type: 'session'; running: boolean };
+	| { type: 'session'; running: boolean }
+	| { type: 'showGuide' };
 
 export type HomeToHost =
 	| { type: 'ready' }
@@ -132,7 +133,8 @@ export type HomeToHost =
 	| { type: 'stop' }
 	| { type: 'showPanel' }
 	| { type: 'runFix'; stepId: string }
-	| { type: 'setTarget'; target: ClientKind };
+	| { type: 'setTarget'; target: ClientKind }
+	| { type: 'openGuideOnline' };
 
 export type HostToSession =
 	| { type: 'init'; snapshot: SessionSnapshot }
@@ -147,5 +149,6 @@ export type SessionToHost =
 	| { type: 'openFile'; path: string; line: number }
 	| { type: 'openHandler'; controller: string; handler: string }
 	| { type: 'openExternal' }
+	| { type: 'showGuide' }
 	| { type: 'restart' }
 	| { type: 'stop' };

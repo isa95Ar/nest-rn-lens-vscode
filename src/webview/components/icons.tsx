@@ -146,6 +146,13 @@ export const FitIcon = icon(
 		<path d="M16 21h3a2 2 0 0 0 2-2v-3" />
 	</>,
 );
+export const HelpIcon = icon(
+	<>
+		<circle cx="12" cy="12" r="10" />
+		<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+		<path d="M12 17h.01" />
+	</>,
+);
 export const CopyIcon = icon(
 	<>
 		<rect width="14" height="14" x="8" y="8" rx="2" />

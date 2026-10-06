@@ -3,7 +3,8 @@ import * as vscode from 'vscode';
 import { HomeViewProvider } from './home-view';
 import { Session } from './session/session';
 import { SessionPanel } from './session/session-panel';
-import type { ClientKind, HomeToHost, ValidationResult } from './shared/protocol';
+import type { ClientKind, HomeToHost, StepFix, ValidationResult } from './shared/protocol';
+import { addClient, enableCors, type EditResult } from './validation/app-fixes';
 import { registerNestModule } from './validation/nest-module';
 import { validateWorkspace } from './validation/validate';
 import { detectPackageManager } from './validation/workspace';
@@ -11,6 +12,7 @@ import { detectPackageManager } from './validation/workspace';
 // Short pause per step so the checklist animates instead of flashing.
 const STEP_DELAY_MS = 180;
 const TARGET_KEY = 'nestRnLens.target';
+const GUIDE_URL = 'https://github.com/isa95Ar/nest-rn-lens-vscode#integrate-your-app-step-by-step';
 
 class NestRnLens implements vscode.Disposable {
 	private readonly home: HomeViewProvider;
@@ -29,6 +31,7 @@ class NestRnLens implements vscode.Disposable {
 			vscode.commands.registerCommand('nestRnLens.revalidate', () => this.validate()),
 			vscode.commands.registerCommand('nestRnLens.start', () => this.start()),
 			vscode.commands.registerCommand('nestRnLens.stop', () => this.stop()),
+			vscode.commands.registerCommand('nestRnLens.showGuide', () => this.showGuide()),
 			vscode.workspace.onDidChangeWorkspaceFolders(() => this.validate()),
 			this,
 		);
@@ -97,6 +100,12 @@ class NestRnLens implements vscode.Disposable {
 		this.panel?.close();
 	}
 
+	/** The setup guide lives in the sidebar. */
+	showGuide() {
+		this.home.reveal();
+		this.home.post({ type: 'showGuide' });
+	}
+
 	dispose() {
 		void this.session?.stop();
 	}
@@ -131,6 +140,30 @@ class NestRnLens implements vscode.Disposable {
 			case 'runFix':
 				void this.runFix(message.stepId);
 				break;
+			case 'openGuideOnline':
+				void vscode.env.openExternal(vscode.Uri.parse(GUIDE_URL));
+				break;
+		}
+	}
+
+	private applyEdit(edit: NonNullable<StepFix['edit']>): EditResult | undefined {
+		const { nest, client, target } = this.validation ?? {};
+		switch (edit) {
+			case 'register-nest-module':
+				return nest && registerNestModule(nest.dir, basename(nest.dir));
+			case 'enable-cors':
+				return nest && enableCors(nest.dir);
+			case 'add-client':
+				return (
+					client &&
+					target &&
+					addClient({
+						kind: target,
+						appDir: client.dir,
+						appName: basename(client.dir),
+						apiPort: vscode.workspace.getConfiguration('nestRnLens').get('apiPort', 3000),
+					})
+				);
 		}
 	}
 
@@ -140,7 +173,6 @@ class NestRnLens implements vscode.Disposable {
 	 */
 	private async runFix(stepId: string) {
 		const fix = this.validation?.steps.find((s) => s.id === stepId)?.fix;
-		const nest = this.validation?.nest;
 		if (!fix) {
 			return;
 		}
@@ -156,18 +188,16 @@ class NestRnLens implements vscode.Disposable {
 			}
 		}
 
-		if (fix.edit === 'register-nest-module' && nest) {
-			const result = registerNestModule(nest.dir, basename(nest.dir));
-			if (result.ok) {
-				// Show the change instead of editing silently.
-				const position = new vscode.Position(result.line - 1, 0);
-				await vscode.window.showTextDocument(vscode.Uri.file(result.file), {
-					selection: new vscode.Range(position, position),
-					preview: false,
-				});
-			} else {
-				void vscode.window.showWarningMessage(`NestRN Lens: ${result.reason}`);
-			}
+		const result = fix.edit && this.applyEdit(fix.edit);
+		if (result?.ok) {
+			// Show the change instead of editing silently.
+			const position = new vscode.Position(result.line - 1, 0);
+			await vscode.window.showTextDocument(vscode.Uri.file(result.file), {
+				selection: new vscode.Range(position, position),
+				preview: false,
+			});
+		} else if (result) {
+			void vscode.window.showWarningMessage(`NestRN Lens: ${result.reason}`);
 		}
 		await this.validate();
 	}

@@ -59,6 +59,10 @@ The Turborepo can be your workspace folder or sit up to two folders below it.
    and the checks run again when it finishes.
 5. Click **Launch session**.
 
+Stuck? Click the **?** icon at the top of the sidebar (or **Setup guide** under
+the checks). It walks you through the steps for your app, marks the ones your
+project already passes, and has the fix buttons and code right there.
+
 The panel starts your API and the app's dev server (Metro or `next dev`), then
 loads the app. Use it in the panel, or on a device or browser of your own, and
 watch requests appear in the **Traffic** tab.
@@ -89,7 +93,8 @@ export class AppModule {}
 ### 2. Allow browser requests (CORS)
 
 Both the Next.js app and the React Native preview run in a browser, on another
-port than the API. In the API's `src/main.ts`:
+port than the API. The setup check's **Enable CORS** button adds this for you.
+By hand, in the API's `src/main.ts`:
 
 ```ts
 const app = await NestFactory.create(AppModule);
@@ -99,6 +104,9 @@ if (process.env.NODE_ENV !== 'production') {
 ```
 
 ### 3a. React Native (Expo)
+
+**Fastest:** click **Add NestRN Lens client** in the setup checks (see
+[what it does](#what-add-nestrn-lens-client-does)). Or do it by hand:
 
 1. Let the preview run your app's web build. The setup check's **Install**
    button does this:
@@ -138,6 +146,9 @@ calling screen needs a stack trace resolved by Metro, which the upcoming client
 package will do for you.
 
 ### 3b. Next.js
+
+**Fastest:** click **Add NestRN Lens client** in the setup checks (see
+[what it does](#what-add-nestrn-lens-client-does)). Or do it by hand:
 
 1. Route your API calls through one helper that names the app and the page:
 
@@ -193,7 +204,7 @@ These run for every app:
 | Turborepo workspace                 | `turbo.json` exists and `turbo` is installed                     | Installs dependencies          |
 | NestJS API and a client app         | A workspace depends on `@nestjs/core`, another on `react-native` or `next` | None: these are your apps |
 | `@nest-rn-lens/nest` in the API     | The package is installed **and** registered in the root module   | Installs it and registers it   |
-| API accepts browser requests (CORS) | The API's `main.ts` enables CORS                                 | None (warning only)            |
+| API accepts browser requests (CORS) | The API's `main.ts` enables CORS                                 | Adds a development-only `app.enableCors()` |
 
 Then, for a **React Native** app:
 
@@ -203,7 +214,7 @@ Then, for a **React Native** app:
 | Metro bundler config         | No `metro.config.js`, or one that extends `expo/metro-config` | None: explains what to change                 |
 | Single copy of React         | Only one version of `react` and `react-dom` is installed      | None: explains the `overrides` fix            |
 | In-editor preview support    | `react-native-web` and `react-dom` are installed in the app   | Installs the missing ones with `expo install` |
-| App sends the calling screen | The app sends the `x-nest-rn-lens-*` headers                  | None (warning only)                           |
+| App sends the calling screen | The app sends the `x-nest-rn-lens-*` headers                  | Adds the NestRN Lens client (see below)       |
 
 Or, for a **Next.js** app:
 
@@ -211,10 +222,27 @@ Or, for a **Next.js** app:
 | -------------------------- | ---------------------------------------------------------------- | --------------------- |
 | Next.js version            | Next.js 13 or newer is installed                                 | Installs dependencies |
 | Next.js dev server port    | The app has a `dev` script, and its port doesn't clash with the API's | None: explains what to change |
-| App sends the calling page | The app sends the `x-nest-rn-lens-*` headers                     | None (warning only)   |
+| App sends the calling page | The app sends the `x-nest-rn-lens-*` headers                     | Adds the NestRN Lens client (see below) |
 
-Every fix that runs a command does it in a visible VS Code terminal, so you can
-see exactly what happens.
+Every fix that runs a command does it in a visible VS Code terminal, and every
+fix that edits code opens the file at the change, so you can see exactly what
+happens.
+
+### What "Add NestRN Lens client" does
+
+It adds one small file that tags every request your app sends to the API (it
+recognizes them by the API's port), so you don't have to change any of your
+`fetch` calls. It only runs in development.
+
+| App          | File it creates                       | Where it's loaded                                        | Headers it sends |
+| ------------ | ------------------------------------- | -------------------------------------------------------- | ---------------- |
+| Next.js      | `app/nest-rn-lens.tsx`                | `<NestRnLens />` at the top of `<body>` in the root layout | App name and the current page |
+| React Native | `src/nest-rn-lens.ts` (outside `app/`, so Expo Router doesn't treat it as a screen) | First import of the entry file (`app/_layout.tsx` with Expo Router) | App name |
+
+It wraps the global `fetch`, so libraries built on it (React Query with fetch,
+SWR, ky, Apollo…) are covered too. Requests from axios in the browser go through
+`XMLHttpRequest` and aren't tagged; add the headers to your axios instance
+instead.
 
 ### What "Install and register" does
 
@@ -350,6 +378,7 @@ caller is shown as the page path.
 | `NestRN Lens: Re-check workspace` | Runs the setup checks again                            |
 | `NestRN Lens: Launch session`     | Opens the panel and starts the API and the app         |
 | `NestRN Lens: Stop session`       | Closes the panel and stops both servers                |
+| `NestRN Lens: Setup guide`        | Opens the step-by-step guide in the sidebar (the **?** icon) |
 
 ## Development
 

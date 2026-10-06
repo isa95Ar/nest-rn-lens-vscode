@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0
+
+- Setup guide: a **?** icon in the sidebar (and a **Setup guide** link under the
+  checks) opens step-by-step instructions for your app, with the steps your
+  project already passes marked, the fix buttons, and code to copy.
+- New fix: **Enable CORS** adds a development-only `app.enableCors()` to the
+  API's `main.ts`.
+- New fix: **Add NestRN Lens client** adds a small file that tags every request
+  to your API, for Next.js (app name and page) and React Native (app name),
+  without changing your `fetch` calls.
+- The Traffic tab's empty state links to the setup guide.
+
+## 0.3.0
+
+- Request and response details: click a request in Traffic to see its response
+  body, request body, query, route params and headers (needs
+  `@nest-rn-lens/nest` 0.2.0, which redacts secrets). The setup check offers an
+  **Update** button for older versions.
+- README: a short step-by-step guide to integrate a React Native or Next.js app.
+
 ## 0.2.0
 
 - Next.js support: track a Next.js app instead of a React Native one. The app
@@ -14,11 +34,6 @@
 - Apps that refuse to be framed (X-Frame-Options or CSP) get an "Open in
   browser" card instead of a blank preview.
 - New setting: `nestRnLens.webPort`.
-- Request and response details: click a request in Traffic to see its response
-  body, request body, query, route params and headers (needs
-  `@nest-rn-lens/nest` 0.2.0, which redacts secrets). The setup check offers an
-  **Update** button for older versions.
-- README: a short step-by-step guide to integrate a React Native or Next.js app.
 
 ## 0.1.0
 

@@ -1,5 +1,5 @@
 import type { NestRnLensEvent, ServiceState } from '../../shared/protocol';
-import { ActivityIcon, ArrowRightIcon, BrowserIcon, CodeIcon } from '../components/icons';
+import { ActivityIcon, ArrowRightIcon, BrowserIcon, CodeIcon, HelpIcon } from '../components/icons';
 import { channel } from './use-session';
 
 interface TrafficTableProps {
@@ -31,6 +31,9 @@ export function TrafficTable({ traffic, filter, apiState, selectedId, onSelect }
 					<>
 						<strong>No requests yet</strong>
 						<p>Use the app. Every API call shows up here with the screen that made it and the handler that answered.</p>
+						<button className="link-button" onClick={() => channel.post({ type: 'showGuide' })}>
+							<HelpIcon size={12} /> Nothing showing up? Open the setup guide
+						</button>
 					</>
 				)}
 			</div>

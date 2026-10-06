@@ -2,7 +2,7 @@
   "name": "nest-rn-lens",
   "displayName": "NestRN Lens",
   "description": "See the live traffic between your React Native or Next.js app and your NestJS API, inside a Turborepo.",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "publisher": "IsaiasDiaz",
   "license": "MIT",
   "repository": {
@@ -80,14 +80,25 @@
         "title": "Stop session",
         "category": "NestRN Lens",
         "icon": "$(debug-stop)"
+      },
+      {
+        "command": "nestRnLens.showGuide",
+        "title": "Setup guide",
+        "category": "NestRN Lens",
+        "icon": "$(question)"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "nestRnLens.showGuide",
+          "when": "view == nestRnLens.home",
+          "group": "navigation@1"
+        },
+        {
           "command": "nestRnLens.revalidate",
           "when": "view == nestRnLens.home",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ]
     },

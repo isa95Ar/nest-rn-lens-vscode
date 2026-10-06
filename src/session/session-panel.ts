@@ -102,6 +102,9 @@ export class SessionPanel {
 			case 'openExternal':
 				await vscode.env.openExternal(vscode.Uri.parse(this.session.previewUrl));
 				break;
+			case 'showGuide':
+				await vscode.commands.executeCommand('nestRnLens.showGuide');
+				break;
 			case 'restart':
 				await this.session.restart();
 				this.post({ type: 'reloadPreview' });

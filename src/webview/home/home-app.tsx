@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { ClientKind, HomeToHost, HostToHome, ValidationResult } from '../../shared/protocol';
-import { ArrowRightIcon, BrowserIcon, PhoneIcon, PlayIcon, RefreshIcon, ServerIcon, StopIcon } from '../components/icons';
+import { ArrowRightIcon, BrowserIcon, HelpIcon, PhoneIcon, PlayIcon, RefreshIcon, ServerIcon, StopIcon } from '../components/icons';
 import { Logo } from '../components/logo';
 import { createChannel } from '../vscode';
 import { LensLoader } from './lens-loader';
+import { SetupGuide } from './setup-guide';
 import { StepList } from './step-list';
 
-const channel = createChannel<HostToHome, HomeToHost>(['validation', 'session']);
+const channel = createChannel<HostToHome, HomeToHost>(['validation', 'session', 'showGuide']);
 
 export function HomeApp() {
 	const [result, setResult] = useState<ValidationResult>();
+	const [guide, setGuide] = useState(false);
 	// Remembered across re-checks, so the switch doesn't flicker while the apps are re-detected.
 	const [choice, setChoice] = useState<{ both: boolean; target?: ClientKind }>({ both: false });
 	const [running, setRunning] = useState(false);
@@ -22,6 +24,8 @@ export function HomeApp() {
 				if (target) {
 					setChoice({ both: !!(clients.expo && clients.next), target });
 				}
+			} else if (message.type === 'showGuide') {
+				setGuide(true);
 			} else {
 				setRunning(message.running);
 			}
@@ -44,37 +48,53 @@ export function HomeApp() {
 				</div>
 			</header>
 
-			{choice.both && (
-				<TargetSwitch
-					target={choice.target}
-					disabled={running || validating}
-					onChange={(target) => channel.post({ type: 'setTarget', target })}
+			{guide ? (
+				<SetupGuide
+					result={result}
+					onFix={(stepId) => channel.post({ type: 'runFix', stepId })}
+					onClose={() => setGuide(false)}
+					onOpenOnline={() => channel.post({ type: 'openGuideOnline' })}
 				/>
-			)}
-
-			{validating ? (
-				<section className="hero" aria-live="polite">
-					<LensLoader />
-					<h2>Inspecting your workspace</h2>
-					<p className="muted">Looking for Turborepo, a NestJS API and a React Native or Next.js app</p>
-					<div className="progress" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
-						<span style={{ width: `${(done / total) * 100}%` }} />
-					</div>
-				</section>
-			) : running ? (
-				<RunningCard />
 			) : (
-				<Summary result={result} />
-			)}
+				<>
+				{choice.both && (
+					<TargetSwitch
+						target={choice.target}
+						disabled={running || validating}
+						onChange={(target) => channel.post({ type: 'setTarget', target })}
+					/>
+				)}
 
-			{result && (
-				<StepList steps={result.steps} onFix={(stepId) => channel.post({ type: 'runFix', stepId })} />
-			)}
+				{validating ? (
+					<section className="hero" aria-live="polite">
+						<LensLoader />
+						<h2>Inspecting your workspace</h2>
+						<p className="muted">Looking for Turborepo, a NestJS API and a React Native or Next.js app</p>
+						<div className="progress" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
+							<span style={{ width: `${(done / total) * 100}%` }} />
+						</div>
+					</section>
+				) : running ? (
+					<RunningCard />
+				) : (
+					<Summary result={result} />
+				)}
 
-			{!validating && (
-				<button className="link-button" onClick={() => channel.post({ type: 'revalidate' })}>
-					<RefreshIcon size={13} /> Re-check workspace
-				</button>
+				{result && (
+					<StepList steps={result.steps} onFix={(stepId) => channel.post({ type: 'runFix', stepId })} />
+				)}
+
+				{!validating && (
+					<div className="row">
+						<button className="link-button" onClick={() => channel.post({ type: 'revalidate' })}>
+							<RefreshIcon size={13} /> Re-check workspace
+						</button>
+						<button className="link-button" onClick={() => setGuide(true)}>
+							<HelpIcon size={13} /> Setup guide
+						</button>
+					</div>
+				)}
+				</>
 			)}
 		</main>
 	);

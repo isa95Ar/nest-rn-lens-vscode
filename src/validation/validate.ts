@@ -181,7 +181,13 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 		const who = ctx.target === 'next' ? 'The Next.js app calls' : 'The in-editor preview calls';
 		return {
 			status: 'warn',
-			detail: `${who} the API from a browser, which needs CORS. Add app.enableCors() to ${relativeDir}/src/main.ts for development.`,
+			detail: `${who} the API from a browser, which needs CORS.`,
+			fix: {
+				label: 'Enable CORS',
+				summary: `Adds app.enableCors(), for development only, to ${relativeDir}/src/main.ts`,
+				cwd: dir,
+				edit: 'enable-cors',
+			},
 		};
 	},
 
@@ -262,10 +268,18 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 		if (file) {
 			return { status: 'pass', detail: `Sends the NestRN Lens headers (${relativeDir}/${file})` };
 		}
-		const what = ctx.target === 'next' ? 'the page that made them' : 'the screen that made them';
+		const next = ctx.target === 'next';
 		return {
 			status: 'warn',
-			detail: `Requests will show up as "unknown", without ${what}. Send the x-nest-rn-lens-* headers (see the README).`,
+			detail: `Requests will show up as "unknown", without ${next ? 'the page that made them' : 'the app that made them'}.`,
+			fix: {
+				label: 'Add NestRN Lens client',
+				summary: next
+					? 'Creates app/nest-rn-lens.tsx and renders it in the root layout. Your fetch calls stay as they are.'
+					: 'Creates nest-rn-lens.ts and imports it first in the app entry. Your fetch calls stay as they are.',
+				cwd: dir,
+				edit: 'add-client',
+			},
 		};
 	},
 
