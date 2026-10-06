@@ -29,6 +29,8 @@ GET /orders       200    8ms   web · web      /orders                       →
 - **A live Traffic log**: method, route, status, duration, the calling screen or
   page and the handler, plus totals for requests, routes, average latency and
   errors.
+- **Request and response details**: click a request to see its response body,
+  request body, query, route params and headers, with secrets redacted.
 - **Jump to code** on both ends of every request.
 - **Server logs** for the API and for Metro or Next.js, in their own tabs, with
   search.
@@ -60,6 +62,125 @@ The Turborepo can be your workspace folder or sit up to two folders below it.
 The panel starts your API and the app's dev server (Metro or `next dev`), then
 loads the app. Use it in the panel, or on a device or browser of your own, and
 watch requests appear in the **Traffic** tab.
+
+## Integrate your app, step by step
+
+Steps 1 and 2 are the same for every app. Then follow the steps for your app,
+React Native or Next.js, and launch.
+
+### 1. Add the interceptor to the API
+
+The setup check's **Install and register** button does this for you. By hand:
+
+```bash
+npm install @nest-rn-lens/nest   # in the API folder
+```
+
+```ts
+// The module you pass to NestFactory.create(), usually src/app.module.ts
+import { NestRnLensModule } from '@nest-rn-lens/nest';
+
+@Module({
+  imports: [NestRnLensModule.forRoot({ app: 'api' }) /* , your other modules */],
+})
+export class AppModule {}
+```
+
+### 2. Allow browser requests (CORS)
+
+Both the Next.js app and the React Native preview run in a browser, on another
+port than the API. In the API's `src/main.ts`:
+
+```ts
+const app = await NestFactory.create(AppModule);
+if (process.env.NODE_ENV !== 'production') {
+  app.enableCors();
+}
+```
+
+### 3a. React Native (Expo)
+
+1. Let the preview run your app's web build. The setup check's **Install**
+   button does this:
+
+   ```bash
+   npx expo install react-native-web react-dom   # in the app folder
+   ```
+
+2. Route your API calls through one helper that names the app. A phone can't
+   reach `localhost` on your computer, so build the API URL from the host Metro
+   is served from:
+
+   ```ts
+   // src/api.ts
+   import Constants from 'expo-constants';
+
+   const host = Constants.expoConfig?.hostUri?.split(':')[0] ?? 'localhost';
+   export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? `http://${host}:3000`;
+
+   export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+     const headers = new Headers(init.headers);
+     if (__DEV__) {
+       headers.set('x-nest-rn-lens-app', 'mobile'); // the name shown in Traffic
+     }
+     const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+     if (!response.ok) {
+       throw new Error(`Request failed (${response.status})`);
+     }
+     return response.json();
+   }
+   ```
+
+3. Call your API through it: `const orders = await apiFetch<Order[]>('/orders');`
+
+Requests then show up as `mobile`. Showing the exact file and line of the
+calling screen needs a stack trace resolved by Metro, which the upcoming client
+package will do for you.
+
+### 3b. Next.js
+
+1. Route your API calls through one helper that names the app and the page:
+
+   ```ts
+   // src/lib/api.ts
+   export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+   export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+     const headers = new Headers(init.headers);
+     if (process.env.NODE_ENV !== 'production') {
+       headers.set('x-nest-rn-lens-app', 'web'); // the name shown in Traffic
+       if (typeof window !== 'undefined') {
+         headers.set('x-nest-rn-lens-caller', window.location.pathname);
+       }
+     }
+     const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+     if (!response.ok) {
+       throw new Error(`Request failed (${response.status})`);
+     }
+     return response.json();
+   }
+   ```
+
+2. Call your API through it: `const orders = await apiFetch<Order[]>('/orders');`
+
+Requests from client components (`'use client'`) report their page, for example
+`/orders/42`. Requests from Server Components, route handlers and server actions
+run on the server, where there's no page, so they only report the app name.
+
+In both apps, only your API receives these headers, because only API calls go
+through the helper.
+
+### 4. Launch from VS Code
+
+1. Click the **NestRN Lens** icon. If the monorepo has both apps, choose one
+   under **Track**.
+2. Check that every step passes.
+3. Click **Launch session**. NestRN Lens starts the API (port 3000) and the app:
+   Metro (8081) for React Native, `next dev` (3001, or the port your `dev`
+   script sets with `-p`) for Next.js.
+
+Don't start the apps yourself with `npm run dev`: the panel can only show the
+traffic and logs of servers it started.
 
 ## Setup checks
 
@@ -129,10 +250,23 @@ add by hand. To set it up yourself instead, see the
 | Toolbar   | Status of the app's dev server and the API, plus Reload app, Open in browser, Restart both, and Stop |
 | Stage     | The app, in a phone frame (React Native) or a browser window (Next.js). Zoom with `−` / `+`, click the percentage for 100%, **Fit** to follow the panel size. Pinch or Ctrl/Cmd + scroll works on the background around the app |
 | Traffic   | One row per request, newest first. Filter by route, screen or handler. Click a screen or a handler to open it |
+| Details   | Click a row to open its **Response**, **Request** (params, query, body) and **Headers** on the right, with copy buttons. Esc closes it |
 | Log tabs  | Raw output of the API and of Metro or Next.js, with errors and warnings highlighted              |
 
 Drag the bar above the tabs to resize the logs. Closing the panel stops both
 servers.
+
+### Request and response details
+
+![The details pane: a 404 response body next to the traffic list](docs/details.png)
+
+The details come from `@nest-rn-lens/nest` 0.2.0 or newer, which captures each
+request's body, query, route params and headers, and the response body (the
+handler's return value, or the error body Nest sends). Passwords, tokens,
+cookies and similar fields show as `[redacted]`, and bodies over 16 KB are cut
+to a preview. With an older version, the setup check offers an **Update**
+button. See the [package README](https://www.npmjs.com/package/@nest-rn-lens/nest)
+for the options (`captureBodies`, `maxBodyBytes`, `redactKeys`).
 
 ### Next.js apps
 
@@ -162,25 +296,8 @@ Without them, requests still appear, as `unknown` with the platform guessed
 from the user agent. A client package that sets these headers automatically in
 development is coming soon. Until then, add them where your app calls the API.
 
-In a React Native app, send at least the app name:
-
-```ts
-fetch(`${API_URL}/orders`, { headers: { 'x-nest-rn-lens-app': 'mobile' } });
-```
-
-In a Next.js app, the caller is the page the request came from, which the
-browser already knows:
-
-```ts
-const headers: Record<string, string> = {};
-if (process.env.NODE_ENV !== 'production') {
-  headers['x-nest-rn-lens-app'] = 'web';
-  if (typeof window !== 'undefined') {
-    headers['x-nest-rn-lens-caller'] = window.location.pathname;
-  }
-}
-fetch(`${API_URL}/orders`, { headers });
-```
+[Integrate your app, step by step](#integrate-your-app-step-by-step) has a
+helper for each app that adds them.
 
 In the Traffic tab, a file caller opens in the editor when you click it; a page
 caller is shown as the page path.

@@ -6,9 +6,11 @@ interface TrafficTableProps {
 	traffic: NestRnLensEvent[];
 	filter: string;
 	apiState: ServiceState;
+	selectedId?: string;
+	onSelect: (id: string) => void;
 }
 
-export function TrafficTable({ traffic, filter, apiState }: TrafficTableProps) {
+export function TrafficTable({ traffic, filter, apiState, selectedId, onSelect }: TrafficTableProps) {
 	const query = filter.trim().toLowerCase();
 	const rows = traffic
 		.filter((e) => !query || searchText(e).includes(query))
@@ -36,7 +38,8 @@ export function TrafficTable({ traffic, filter, apiState }: TrafficTableProps) {
 	}
 
 	return (
-		<div className="traffic" role="table" aria-label="API traffic">
+		// With a row selected, the details pane takes the right side: keep only the key columns.
+		<div className={`traffic${selectedId ? ' traffic--compact' : ''}`} role="table" aria-label="API traffic">
 			<div className="traffic__row traffic__row--head" role="row">
 				<span role="columnheader">Time</span>
 				<span role="columnheader">Method</span>
@@ -47,19 +50,40 @@ export function TrafficTable({ traffic, filter, apiState }: TrafficTableProps) {
 				<span role="columnheader">Handled by</span>
 			</div>
 			{rows.map((event) => (
-				<TrafficRow key={event.id} event={event} />
+				<TrafficRow key={event.id} event={event} selected={event.id === selectedId} onSelect={onSelect} />
 			))}
 			{rows.length === 0 && <p className="traffic__none">No requests match “{filter}”.</p>}
 		</div>
 	);
 }
 
-function TrafficRow({ event }: { event: NestRnLensEvent }) {
+function TrafficRow({
+	event,
+	selected,
+	onSelect,
+}: {
+	event: NestRnLensEvent;
+	selected: boolean;
+	onSelect: (id: string) => void;
+}) {
 	const { source, target } = event;
 	const caller = source.caller ? parseCaller(source.caller) : undefined;
 
 	return (
-		<div className="traffic__row" role="row" title={event.error}>
+		<div
+			className="traffic__row traffic__row--clickable"
+			role="row"
+			aria-selected={selected}
+			tabIndex={0}
+			title={event.error}
+			onClick={() => onSelect(event.id)}
+			onKeyDown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					onSelect(event.id);
+				}
+			}}
+		>
 			<span className="mono muted">{formatTime(event.timestamp)}</span>
 			<span>
 				<span className={`method method--${target.method.toLowerCase()}`}>{target.method}</span>
@@ -78,7 +102,10 @@ function TrafficRow({ event }: { event: NestRnLensEvent }) {
 					<button
 						className="code-link"
 						title={`Open ${source.caller}`}
-						onClick={() => channel.post({ type: 'openFile', path: caller.path, line: caller.line })}
+						onClick={(e) => {
+							e.stopPropagation(); // open the file, don't select the row
+							channel.post({ type: 'openFile', path: caller.path, line: caller.line });
+						}}
 					>
 						<CodeIcon size={11} /> {caller.short}
 					</button>
@@ -95,7 +122,10 @@ function TrafficRow({ event }: { event: NestRnLensEvent }) {
 				<button
 					className="code-link"
 					title={`Open ${target.controller}.${target.handler}`}
-					onClick={() => channel.post({ type: 'openHandler', controller: target.controller, handler: target.handler })}
+					onClick={(e) => {
+						e.stopPropagation();
+						channel.post({ type: 'openHandler', controller: target.controller, handler: target.handler });
+					}}
 				>
 					<span>
 						{target.controller}.<strong>{target.handler}</strong>

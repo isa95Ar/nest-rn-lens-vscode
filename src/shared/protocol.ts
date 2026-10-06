@@ -50,6 +50,15 @@ export interface ValidationResult {
 
 // ---------- Traffic (must match the API's NestRnLensEvent) ----------
 
+/** A request or response body, as captured by @nest-rn-lens/nest 0.2+. */
+export interface CapturedBody {
+	size: number;
+	value?: unknown;
+	truncated?: boolean;
+	preview?: string;
+	summary?: string;
+}
+
 export interface NestRnLensEvent {
 	id: string;
 	traceId: string;
@@ -66,6 +75,14 @@ export interface NestRnLensEvent {
 	};
 	status: number;
 	error?: string;
+	/** Absent with @nest-rn-lens/nest older than 0.2, or with captureBodies: false. */
+	request?: {
+		headers: Record<string, string>;
+		query?: unknown;
+		params?: unknown;
+		body?: CapturedBody;
+	};
+	response?: { body?: CapturedBody };
 }
 
 // ---------- Session ----------

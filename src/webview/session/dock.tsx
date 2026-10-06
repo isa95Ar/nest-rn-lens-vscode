@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIcon, SearchIcon, ServerIcon, TerminalIcon, TrashIcon } from '../components/icons';
 import { LogView } from './log-view';
+import { RequestDetails } from './request-details';
 import { TrafficTable } from './traffic-table';
 import { appLabel, channel, type DockTab, type SessionState } from './use-session';
 
@@ -17,6 +18,8 @@ export function Dock({ state, height, onClear }: DockProps) {
 		return saved === 'metro' ? 'app' : (saved ?? 'traffic');
 	});
 	const [filter, setFilter] = useState('');
+	const [selectedId, setSelectedId] = useState<string>();
+	const selected = state.traffic.find((event) => event.id === selectedId);
 
 	const selectTab = (next: DockTab) => {
 		setTab(next);
@@ -61,7 +64,16 @@ export function Dock({ state, height, onClear }: DockProps) {
 
 			<div className="dock__content" role="tabpanel">
 				{tab === 'traffic' ? (
-					<TrafficTable traffic={state.traffic} filter={filter} apiState={state.services.api} />
+					<div className="traffic-split">
+						<TrafficTable
+							traffic={state.traffic}
+							filter={filter}
+							apiState={state.services.api}
+							selectedId={selected?.id}
+							onSelect={(id) => setSelectedId(id === selectedId ? undefined : id)}
+						/>
+						{selected && <RequestDetails event={selected} onClose={() => setSelectedId(undefined)} />}
+					</div>
 				) : (
 					<LogView lines={state.logs} service={tab} filter={filter} serviceState={state.services[tab]} />
 				)}

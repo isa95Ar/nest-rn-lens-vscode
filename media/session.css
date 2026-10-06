@@ -949,6 +949,174 @@ body.resizing iframe {
 	text-decoration: underline;
 }
 
+/* ---------- Traffic split and details ---------- */
+
+.traffic-split {
+	display: flex;
+	height: 100%;
+	min-height: 0;
+}
+
+.traffic-split > .traffic,
+.traffic-split > .empty {
+	flex: 1;
+	min-width: 0;
+	overflow: auto;
+}
+
+.traffic__row--clickable {
+	cursor: pointer;
+}
+
+.traffic__row--clickable:focus-visible {
+	outline: 1px solid var(--il-focus);
+	outline-offset: -1px;
+}
+
+.traffic__row[aria-selected='true'],
+.traffic__row[aria-selected='true']:hover {
+	background: color-mix(in srgb, var(--il-accent-2) 14%, transparent);
+	box-shadow: inset 2px 0 0 var(--il-accent-2);
+}
+
+/* Compact table next to the details pane: time, method, route, status, duration. */
+.traffic--compact .traffic__row {
+	grid-template-columns: 64px 56px minmax(120px, 1fr) 52px 56px;
+}
+
+.traffic--compact .traffic__row > :nth-child(n + 6) {
+	display: none;
+}
+
+.details {
+	display: flex;
+	flex-direction: column;
+	width: 46%;
+	min-width: 320px;
+	max-width: 720px;
+	border-left: 1px solid var(--il-border);
+	background: color-mix(in srgb, var(--vscode-panel-background, var(--vscode-editor-background)) 92%, var(--il-fg) 3%);
+	animation: details-in 0.18s var(--il-ease);
+}
+
+@keyframes details-in {
+	from {
+		opacity: 0;
+		transform: translateX(12px);
+	}
+}
+
+.details__head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 8px 8px 14px;
+	border-bottom: 1px solid var(--il-border);
+}
+
+.details__path {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.details__tabs {
+	display: flex;
+	gap: 2px;
+	height: 34px;
+	padding: 0 6px;
+	border-bottom: 1px solid var(--il-border);
+	flex-shrink: 0;
+}
+
+.details__body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 4px 14px 16px;
+}
+
+.details__section + .details__section {
+	margin-top: 6px;
+}
+
+.details__section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 32px;
+	color: var(--il-muted);
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.details__note {
+	margin: 4px 0 10px;
+	color: var(--il-muted);
+	font-size: 12px;
+}
+
+.details__note code {
+	font-family: var(--il-mono);
+	font-size: 11.5px;
+}
+
+.json {
+	margin: 0;
+	padding: 10px 12px;
+	overflow: auto;
+	border: 1px solid var(--il-border);
+	border-radius: var(--il-radius-small);
+	background: var(--vscode-editor-background);
+	font-family: var(--il-mono);
+	font-size: 12px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.json__key {
+	color: var(--vscode-debugTokenExpression-name, #9cdcfe);
+}
+
+.json__string {
+	color: var(--vscode-debugTokenExpression-string, #ce9178);
+}
+
+.json__number {
+	color: var(--vscode-debugTokenExpression-number, #b5cea8);
+}
+
+.json__literal {
+	color: var(--vscode-debugTokenExpression-boolean, #569cd6);
+}
+
+.kv {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: var(--il-mono);
+	font-size: 12px;
+}
+
+.kv th,
+.kv td {
+	padding: 5px 8px;
+	border-bottom: 1px solid color-mix(in srgb, var(--il-border) 60%, transparent);
+	text-align: left;
+	vertical-align: top;
+	overflow-wrap: anywhere;
+}
+
+.kv th {
+	width: 38%;
+	color: var(--il-muted);
+	font-weight: 500;
+}
+
 /* ---------- Logs ---------- */
 
 .logs-wrap {

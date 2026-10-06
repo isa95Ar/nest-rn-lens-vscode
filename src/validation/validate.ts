@@ -19,6 +19,9 @@ import {
 const MIN_EXPO_SDK = 52;
 const METRO_CONFIG_FILES = ['metro.config.js', 'metro.config.cjs', 'metro.config.mjs', 'metro.config.ts'];
 
+// First @nest-rn-lens/nest version that captures request and response bodies.
+const BODIES_SINCE = '0.2.0';
+
 // Next.js 13 introduced the app router; older versions aren't tested.
 const MIN_NEXT = 13;
 
@@ -155,6 +158,14 @@ const CHECKS: Record<string, (ctx: Context, folders: string[]) => StepOutcome> =
 					cwd: dir,
 					edit: 'register-nest-module',
 				},
+			};
+		}
+		// 0.2 added request and response bodies; older versions still work without them.
+		if (olderThan(version, BODIES_SINCE)) {
+			return {
+				status: 'warn',
+				detail: `v${version}. Update to ${BODIES_SINCE} or newer to see request and response bodies.`,
+				fix: { label: 'Update', summary: `${add} ${NEST_PACKAGE}@latest`, command: `${add} ${NEST_PACKAGE}@latest`, cwd: dir },
 			};
 		}
 		return { status: 'pass', detail: `v${version} · registered in ${relativeDir}/${moduleFile}` };
@@ -353,6 +364,18 @@ export async function validateWorkspace(
 		}
 	}
 	return emit('done');
+}
+
+/** True if `version` is below `minimum` (plain major.minor.patch). */
+function olderThan(version: string, minimum: string): boolean {
+	const a = version.split(/[.-]/).map(Number);
+	const b = minimum.split('.').map(Number);
+	for (let i = 0; i < 3; i++) {
+		if ((a[i] ?? 0) !== b[i]) {
+			return (a[i] ?? 0) < b[i];
+		}
+	}
+	return false;
 }
 
 function toApp(kind: DetectedApp['kind'], { dir, pkg, relativeDir }: WorkspacePackage): DetectedApp {

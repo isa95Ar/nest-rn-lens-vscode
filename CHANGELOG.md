@@ -14,6 +14,11 @@
 - Apps that refuse to be framed (X-Frame-Options or CSP) get an "Open in
   browser" card instead of a blank preview.
 - New setting: `nestRnLens.webPort`.
+- Request and response details: click a request in Traffic to see its response
+  body, request body, query, route params and headers (needs
+  `@nest-rn-lens/nest` 0.2.0, which redacts secrets). The setup check offers an
+  **Update** button for older versions.
+- README: a short step-by-step guide to integrate a React Native or Next.js app.
 
 ## 0.1.0
 
