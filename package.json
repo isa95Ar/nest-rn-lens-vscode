@@ -3,7 +3,7 @@
   "displayName": "NestRN Lens",
   "description": "See the live traffic between your React Native app and your NestJS API, inside a Turborepo.",
   "version": "0.1.0",
-  "publisher": "isa",
+  "publisher": "IsaiasDiaz",
   "license": "MIT",
   "repository": {
     "type": "git",
