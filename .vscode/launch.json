@@ -1,0 +1,18 @@
+// Press F5 to open a new VS Code window with Isalens loaded.
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Isalens",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				// Opens the sample monorepo so there is something to validate.
+				"${workspaceFolder}/../../project"
+			],
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "${defaultBuildTask}"
+		}
+	]
+}

@@ -1,0 +1,229 @@
+/* Shared tokens and primitives. Colors come from the VS Code theme so the
+   panels match light, dark and high-contrast themes; the brand gradient is
+   the only fixed color. */
+
+:root {
+	--il-accent-1: #f0245a;
+	--il-accent-2: #0a8dff;
+	--il-gradient: linear-gradient(135deg, var(--il-accent-1), var(--il-accent-2));
+
+	--il-fg: var(--vscode-foreground);
+	--il-muted: var(--vscode-descriptionForeground);
+	--il-border: var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 14%, transparent));
+	--il-surface: color-mix(in srgb, var(--vscode-foreground) 4%, transparent);
+	--il-surface-hover: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+	--il-focus: var(--vscode-focusBorder);
+
+	--il-success: var(--vscode-testing-iconPassed, #3fb950);
+	--il-warning: var(--vscode-editorWarning-foreground, #d29922);
+	--il-error: var(--vscode-errorForeground, #f85149);
+	--il-info: var(--vscode-textLink-foreground, #3794ff);
+
+	--il-mono: var(--vscode-editor-font-family, ui-monospace, monospace);
+	--il-radius: 10px;
+	--il-radius-small: 6px;
+	--il-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	color: var(--il-fg);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size, 13px);
+	line-height: 1.45;
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p {
+	margin: 0;
+}
+
+.muted {
+	color: var(--il-muted);
+}
+
+.small {
+	font-size: 11px;
+}
+
+.center {
+	text-align: center;
+}
+
+.mono {
+	font-family: var(--il-mono);
+	font-size: 12px;
+}
+
+.row {
+	display: flex;
+	gap: 8px;
+}
+
+/* ---------- Buttons ---------- */
+
+button {
+	font: inherit;
+	color: inherit;
+}
+
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 30px;
+	padding: 0 14px;
+	border: 1px solid var(--il-border);
+	border-radius: var(--il-radius-small);
+	background: var(--il-surface);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s, transform 0.1s, box-shadow 0.2s, opacity 0.15s;
+}
+
+.button:hover {
+	background: var(--il-surface-hover);
+}
+
+.button:active {
+	transform: translateY(1px);
+}
+
+.button:focus-visible,
+.icon-button:focus-visible,
+.code-link:focus-visible,
+.tab:focus-visible {
+	outline: 1px solid var(--il-focus);
+	outline-offset: 2px;
+}
+
+.button--primary {
+	border: none;
+	color: #fff;
+	background: var(--il-gradient);
+	box-shadow: 0 4px 18px -6px color-mix(in srgb, var(--il-accent-1) 70%, transparent);
+}
+
+.button--primary:hover {
+	background: var(--il-gradient);
+	box-shadow: 0 6px 24px -6px color-mix(in srgb, var(--il-accent-1) 90%, transparent);
+	filter: brightness(1.08);
+}
+
+.button--ghost {
+	background: transparent;
+}
+
+.button--danger {
+	color: var(--il-error);
+	border-color: color-mix(in srgb, var(--il-error) 40%, transparent);
+	background: color-mix(in srgb, var(--il-error) 8%, transparent);
+}
+
+.button--danger:hover {
+	background: color-mix(in srgb, var(--il-error) 16%, transparent);
+}
+
+.button--small {
+	height: 24px;
+	padding: 0 10px;
+	font-size: 12px;
+}
+
+.button--block {
+	width: 100%;
+	height: 34px;
+}
+
+.icon-button {
+	display: inline-grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: none;
+	border-radius: var(--il-radius-small);
+	background: transparent;
+	color: var(--il-muted);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.icon-button:hover {
+	background: var(--il-surface-hover);
+	color: var(--il-fg);
+}
+
+.link-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 0;
+	border: none;
+	background: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.link-button:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+/* ---------- Spinner ---------- */
+
+.spinner {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid color-mix(in srgb, var(--il-accent-1) 25%, transparent);
+	border-top-color: var(--il-accent-1);
+	animation: il-spin 0.7s linear infinite;
+}
+
+@keyframes il-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes il-fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
+
+@keyframes il-pulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 50%, transparent);
+	}
+	50% {
+		box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 0%, transparent);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}

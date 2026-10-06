@@ -1,0 +1,883 @@
+/* Session panel: toolbar, phone preview stage, and the logs dock. */
+
+body {
+	background: var(--vscode-editor-background);
+	overflow: hidden;
+}
+
+body.resizing {
+	cursor: row-resize;
+	user-select: none;
+}
+
+/* The iframe would swallow pointer events mid-drag. */
+body.resizing iframe {
+	pointer-events: none;
+}
+
+.session {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	height: 44px;
+	padding: 0 12px 0 14px;
+	border-bottom: 1px solid var(--il-border);
+	background: color-mix(in srgb, var(--vscode-editor-background) 85%, var(--il-fg) 3%);
+	flex-shrink: 0;
+}
+
+.toolbar__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-weight: 600;
+}
+
+.toolbar__app {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.toolbar__services {
+	display: flex;
+	gap: 6px;
+	margin-left: auto;
+}
+
+.toolbar__actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding-left: 12px;
+	border-left: 1px solid var(--il-border);
+}
+
+.toolbar__actions .button {
+	margin-left: 6px;
+}
+
+@media (max-width: 640px) {
+	.toolbar__title .toolbar__app:last-child,
+	.toolbar__title > svg:nth-of-type(2),
+	.pill__status {
+		display: none;
+	}
+}
+
+.pill {
+	--pill-color: var(--il-muted);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 10px;
+	border: 1px solid color-mix(in srgb, var(--pill-color) 35%, transparent);
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--pill-color) 9%, transparent);
+	font-size: 11.5px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.pill__status {
+	color: var(--pill-color);
+	font-weight: 500;
+}
+
+.pill__dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	color: var(--pill-color);
+	background: currentColor;
+}
+
+.pill--starting {
+	--pill-color: var(--il-warning);
+}
+
+.pill--starting .pill__dot {
+	animation: il-pulse 1s infinite;
+}
+
+.pill--running {
+	--pill-color: var(--il-success);
+}
+
+.pill--running .pill__dot {
+	animation: il-pulse 2s infinite;
+}
+
+.pill--attached {
+	--pill-color: var(--il-info);
+}
+
+.pill--error {
+	--pill-color: var(--il-error);
+}
+
+/* ---------- Stage ---------- */
+
+.stage {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	background:
+		radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--il-accent-1) 16%, transparent), transparent 55%),
+		radial-gradient(circle at 75% 85%, color-mix(in srgb, var(--il-accent-2) 10%, transparent), transparent 45%),
+		radial-gradient(circle, color-mix(in srgb, var(--il-fg) 12%, transparent) 1px, transparent 1.2px) 0 0 / 22px 22px;
+}
+
+.stage__canvas {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	/* "safe" keeps the phone's top reachable when it's taller than the panel. */
+	place-items: safe center;
+	padding: 16px;
+	overflow: auto;
+}
+
+/* ---------- Zoom ---------- */
+
+.zoom {
+	position: absolute;
+	right: 14px;
+	bottom: 14px;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 3px;
+	border: 1px solid var(--il-border);
+	border-radius: var(--il-radius);
+	background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+	backdrop-filter: blur(12px);
+	box-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.35);
+}
+
+.zoom .icon-button:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.zoom .icon-button:disabled:hover {
+	background: transparent;
+	color: var(--il-muted);
+}
+
+.zoom .icon-button[aria-pressed='true'] {
+	color: #fff;
+	background: var(--il-gradient);
+}
+
+.zoom__value {
+	min-width: 52px;
+	height: 26px;
+	padding: 0 6px;
+	border: none;
+	border-radius: var(--il-radius-small);
+	background: transparent;
+	cursor: pointer;
+	font-family: var(--il-mono);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+.zoom__value:hover {
+	background: var(--il-surface-hover);
+}
+
+.zoom__divider {
+	width: 1px;
+	height: 16px;
+	margin: 0 3px;
+	background: var(--il-border);
+}
+
+.stats {
+	position: absolute;
+	top: 14px;
+	left: 14px;
+	z-index: 2;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(72px, auto));
+	gap: 1px;
+	overflow: hidden;
+	border: 1px solid var(--il-border);
+	border-radius: var(--il-radius);
+	background: var(--il-border);
+	backdrop-filter: blur(12px);
+	box-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.35);
+}
+
+.stat {
+	display: flex;
+	flex-direction: column;
+	padding: 8px 12px;
+	background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+}
+
+.stat__value {
+	font-family: var(--il-mono);
+	font-size: 16px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.stat__label {
+	color: var(--il-muted);
+	font-size: 10px;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.stat--error .stat__value {
+	color: var(--il-error);
+}
+
+@media (max-width: 760px) {
+	.stats {
+		display: none;
+	}
+}
+
+/* ---------- Phone ---------- */
+
+.phone-slot {
+	position: relative;
+	flex-shrink: 0;
+}
+
+.phone {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: top left;
+	padding: 12px;
+	border-radius: 64px;
+	background: linear-gradient(145deg, #2a2a31, #0d0d10 45%, #1c1c22);
+	box-shadow:
+		0 0 0 1.5px #3a3a44,
+		0 0 0 3px #111114,
+		0 40px 80px -30px rgba(0, 0, 0, 0.6),
+		0 20px 40px -20px color-mix(in srgb, var(--il-accent-1) 45%, transparent);
+}
+
+/* Side buttons. */
+.phone::before,
+.phone::after {
+	content: '';
+	position: absolute;
+	width: 3px;
+	border-radius: 2px;
+	background: #26262c;
+}
+
+.phone::before {
+	left: -4px;
+	top: 180px;
+	height: 64px;
+	box-shadow: 0 84px 0 #26262c;
+}
+
+.phone::after {
+	right: -4px;
+	top: 230px;
+	height: 100px;
+}
+
+.phone__screen {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	border-radius: 52px;
+	background: #fff;
+	color: #000;
+}
+
+.phone__status-bar {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 47px;
+	padding: 0 30px 0 44px;
+	flex-shrink: 0;
+	background: #f4f5f7;
+	font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+}
+
+.phone__time {
+	font-size: 16px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+.phone__island {
+	position: absolute;
+	top: 11px;
+	left: 50%;
+	width: 120px;
+	height: 34px;
+	border-radius: 20px;
+	background: #000;
+	transform: translateX(-50%);
+}
+
+.phone__indicators {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.phone__viewport {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	background: #f4f5f7;
+}
+
+.phone__viewport iframe {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	background: #f4f5f7;
+	animation: il-fade-in 0.4s ease;
+}
+
+@keyframes il-fade-in {
+	from {
+		opacity: 0;
+	}
+}
+
+.phone__home-indicator {
+	position: absolute;
+	bottom: 8px;
+	left: 50%;
+	width: 134px;
+	height: 5px;
+	border-radius: 3px;
+	background: rgba(0, 0, 0, 0.85);
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
+/* Boot screen, shown inside the phone while Metro starts. */
+.boot {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 100%;
+	padding: 40px 32px;
+	color: #1c1c1e;
+	font-family: -apple-system, system-ui, sans-serif;
+	text-align: center;
+}
+
+.boot strong {
+	margin-top: 14px;
+	font-size: 18px;
+}
+
+.boot p {
+	color: #6e6e73;
+	font-size: 14px;
+}
+
+.boot__spinner {
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: conic-gradient(from 0deg, transparent, var(--il-accent-1), var(--il-accent-2));
+	-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+	mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+	animation: il-spin 0.9s linear infinite;
+}
+
+.boot__skeleton {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	width: 100%;
+	margin-top: 40px;
+}
+
+.boot__skeleton span {
+	height: 150px;
+	border-radius: 16px;
+	background: linear-gradient(90deg, #e8e9ec 0%, #f6f7f9 50%, #e8e9ec 100%) 0 0 / 200% 100%;
+	animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+	to {
+		background-position: -200% 0;
+	}
+}
+
+.boot--error .boot__error-icon {
+	display: grid;
+	place-items: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	color: #fff;
+	background: #d93a3a;
+}
+
+/* ---------- Dock ---------- */
+
+.dock-resizer {
+	position: relative;
+	z-index: 3;
+	height: 6px;
+	margin: -3px 0;
+	cursor: row-resize;
+	flex-shrink: 0;
+}
+
+.dock-resizer::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 1px;
+	width: 36px;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--il-border);
+	transform: translateX(-50%);
+	transition: background 0.15s, width 0.15s;
+}
+
+.dock-resizer:hover::after {
+	width: 56px;
+	background: var(--il-accent-1);
+}
+
+.dock {
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	min-height: 0;
+	border-top: 1px solid var(--il-border);
+	background: var(--vscode-panel-background, var(--vscode-editor-background));
+}
+
+.dock__bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	height: 38px;
+	padding: 0 10px;
+	border-bottom: 1px solid var(--il-border);
+	flex-shrink: 0;
+}
+
+.tabs {
+	display: flex;
+	gap: 2px;
+	height: 100%;
+}
+
+.tab {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 10px;
+	border: none;
+	background: none;
+	color: var(--il-muted);
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 500;
+	transition: color 0.15s;
+}
+
+.tab:hover {
+	color: var(--il-fg);
+}
+
+.tab[aria-selected='true'] {
+	color: var(--il-fg);
+}
+
+.tab[aria-selected='true']::after {
+	content: '';
+	position: absolute;
+	left: 8px;
+	right: 8px;
+	bottom: -1px;
+	height: 2px;
+	border-radius: 2px;
+	background: var(--il-gradient);
+}
+
+.tab__count {
+	min-width: 18px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--il-surface-hover);
+	font-family: var(--il-mono);
+	font-size: 10.5px;
+	line-height: 17px;
+	text-align: center;
+}
+
+.tab[aria-selected='true'] .tab__count {
+	color: #fff;
+	background: var(--il-gradient);
+}
+
+.dock__tools {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.search {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 26px;
+	padding: 0 8px;
+	border: 1px solid var(--vscode-input-border, var(--il-border));
+	border-radius: var(--il-radius-small);
+	background: var(--vscode-input-background);
+	color: var(--il-muted);
+}
+
+.search:focus-within {
+	border-color: var(--il-focus);
+}
+
+.search input {
+	width: 180px;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--vscode-input-foreground);
+	font: inherit;
+	font-size: 12px;
+}
+
+.dock__content {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+
+/* ---------- Empty state ---------- */
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: 100%;
+	padding: 24px;
+	text-align: center;
+}
+
+.empty p {
+	max-width: 380px;
+	color: var(--il-muted);
+	font-size: 12px;
+}
+
+.empty__icon {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	margin-bottom: 6px;
+	border-radius: 12px;
+	color: var(--il-accent-1);
+	background: color-mix(in srgb, var(--il-accent-1) 12%, transparent);
+}
+
+/* ---------- Traffic ---------- */
+
+.traffic__row {
+	display: grid;
+	grid-template-columns: 70px 64px minmax(140px, 1.3fr) 56px 64px minmax(170px, 1.3fr) minmax(170px, 1.2fr);
+	align-items: center;
+	gap: 10px;
+	min-height: 34px;
+	padding: 4px 14px;
+	border-bottom: 1px solid color-mix(in srgb, var(--il-border) 60%, transparent);
+	animation: row-in 0.6s var(--il-ease);
+}
+
+.traffic__row:hover {
+	background: var(--vscode-list-hoverBackground, var(--il-surface));
+}
+
+.traffic__row--head {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	min-height: 28px;
+	background: var(--vscode-panel-background, var(--vscode-editor-background));
+	color: var(--il-muted);
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	animation: none;
+}
+
+.traffic__row--head:hover {
+	background: var(--vscode-panel-background, var(--vscode-editor-background));
+}
+
+/* New requests flash in with the brand color. */
+@keyframes row-in {
+	from {
+		background: color-mix(in srgb, var(--il-accent-1) 18%, transparent);
+	}
+}
+
+.traffic__route,
+.traffic__source,
+.traffic__handler {
+	display: flex;
+	min-width: 0;
+	gap: 6px;
+}
+
+.traffic__route,
+.traffic__source {
+	flex-direction: column;
+	gap: 0;
+}
+
+.traffic__handler {
+	align-items: center;
+}
+
+.traffic__route .mono,
+.traffic__path {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.traffic__path {
+	font-size: 11px;
+}
+
+.traffic__none {
+	padding: 16px;
+	color: var(--il-muted);
+	text-align: center;
+}
+
+.platform {
+	color: var(--il-muted);
+	font-size: 11px;
+}
+
+.method {
+	display: inline-block;
+	min-width: 46px;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-family: var(--il-mono);
+	font-size: 10.5px;
+	font-weight: 700;
+	text-align: center;
+	--method-color: var(--il-info);
+	color: var(--method-color);
+	background: color-mix(in srgb, var(--method-color) 14%, transparent);
+}
+
+.method--get {
+	--method-color: var(--il-success);
+}
+
+.method--post {
+	--method-color: var(--il-info);
+}
+
+.method--put,
+.method--patch {
+	--method-color: var(--il-warning);
+}
+
+.method--delete {
+	--method-color: var(--il-error);
+}
+
+.status {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-family: var(--il-mono);
+	font-size: 12px;
+	font-weight: 600;
+	--status-color: var(--il-muted);
+	color: var(--status-color);
+}
+
+.status::before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.status--2xx {
+	--status-color: var(--il-success);
+}
+
+.status--3xx {
+	--status-color: var(--il-info);
+}
+
+.status--4xx {
+	--status-color: var(--il-warning);
+}
+
+.status--5xx {
+	--status-color: var(--il-error);
+}
+
+.duration--fast {
+	color: var(--il-muted);
+}
+
+.duration--ok {
+	color: var(--il-warning);
+}
+
+.duration--slow {
+	color: var(--il-error);
+}
+
+.code-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	padding: 0;
+	overflow: hidden;
+	border: none;
+	background: none;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	font-family: var(--il-mono);
+	font-size: 11.5px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.code-link:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}
+
+/* ---------- Logs ---------- */
+
+.logs-wrap {
+	position: absolute;
+	inset: 0;
+}
+
+.logs {
+	height: 100%;
+	overflow: auto;
+	padding: 6px 0;
+	font-family: var(--il-mono);
+	font-size: 12px;
+	line-height: 1.55;
+}
+
+.log {
+	display: grid;
+	grid-template-columns: 64px 1fr;
+	gap: 10px;
+	padding: 0 14px;
+	border-left: 2px solid transparent;
+}
+
+.log:hover {
+	background: var(--il-surface);
+}
+
+.log__time {
+	color: var(--il-muted);
+	opacity: 0.7;
+}
+
+.log__text {
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.log--warn {
+	border-left-color: var(--il-warning);
+	background: color-mix(in srgb, var(--il-warning) 6%, transparent);
+}
+
+.log--warn .log__text {
+	color: var(--il-warning);
+}
+
+.log--error {
+	border-left-color: var(--il-error);
+	background: color-mix(in srgb, var(--il-error) 7%, transparent);
+}
+
+.log--error .log__text {
+	color: var(--il-error);
+}
+
+.log--debug .log__text {
+	color: var(--il-muted);
+}
+
+.follow-button {
+	position: absolute;
+	right: 16px;
+	bottom: 12px;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 12px;
+	border: none;
+	border-radius: 999px;
+	color: #fff;
+	background: var(--il-gradient);
+	box-shadow: 0 6px 20px -6px rgba(0, 0, 0, 0.5);
+	cursor: pointer;
+	font-size: 11.5px;
+	font-weight: 600;
+	animation: il-fade-up 0.2s var(--il-ease);
+}
